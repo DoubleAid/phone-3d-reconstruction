@@ -1,0 +1,21 @@
+<package format="3">
+    <name>video_player</name>
+    <version>0.0.1</version>
+    <description>Video player node for 3D reconstruction</description>
+    <maintainer email="simthkbro@gmail.com">DoubleAids</maintainer>
+    <license>TODO</license>
+
+    <!-- 构建工具依赖 -->
+    <depend>common</depend>
+    <depend>rclcpp</depend>
+    <depend>std_srvs</depend>
+    <depend>cv_bridge</depend>
+    <depend>image_transport</depend>
+    <depend>sensor_msg</depend>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+
+    <!-- 安装规则 -->
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
+</package>

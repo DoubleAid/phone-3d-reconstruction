@@ -1,0 +1,5 @@
+video_player:
+  ros__parameters:
+    video_path: "/mnt/d/VW/fota/new1/unittest/data/office_video1.mp4"
+    loop: true
+    frame_rate: 10
