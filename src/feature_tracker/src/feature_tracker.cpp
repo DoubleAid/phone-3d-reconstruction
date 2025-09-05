@@ -50,9 +50,10 @@ void FeatureTracker::readImage(const cv::Mat &_img, double cur_time, bool publis
         int n_max_cnt = max_feature_cnt_ - forw_pts_.size();
         if (n_max_cnt > 0) {
             cv::goodFeaturesToTrack(forw_img_, n_pts_, n_max_cnt, 0.01, min_feature_dist_, mask_);
+        } else {
+            n_pts_.clear();
         }
-    } else {
-        n_pts_.clear();
+        addPoints()
     }
 }
 
@@ -64,6 +65,21 @@ void FeatureTracker::setMask() {
     mask_ = cv::Mat(rows_, cols_, CV_8UC1, cv::Scalar(255));
     vector<pair<int, pair<cv::Point2f, int>>> cnt_pts_id;
     for (unsigned int i = 0; i < forw_pts_.size(); i++) {
-        
+        // cnt_pts_id.push_back(make_pair())
+    }
+    ids_.clear();
+    forw_pts_.clear();
+    track_cnt_.clear();
+
+    for (auto &it : cnt_pts_id) {
+        // 检查当前点是否在允许的区域内
+        if (mask_.at<uchar>(it.second.first) == 255) {
+            // 保留该点
+            forw_pts_.push_back(it.second.first);
+            ids_.push_back(it.second.second);
+            track_cnt_.push_back(it.first);
+            // 在掩码上屏蔽周围区域， 防止重复检测
+            cv::circle(mask_, it.second.first, min_feature_dist_, 0, -1);
+        }       
     }
 }

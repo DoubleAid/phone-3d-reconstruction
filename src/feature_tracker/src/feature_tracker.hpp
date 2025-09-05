@@ -28,6 +28,10 @@ public:
 
     void setMask();
 
+    void addPoints();
+
+    void rejectWithF();
+
 private:
     bool equalize_;             // 是否进行直方图均衡化
 
