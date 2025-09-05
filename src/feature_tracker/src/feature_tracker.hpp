@@ -1,3 +1,4 @@
+#pragma once
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <cv_bridge/cv_bridge.h>
@@ -6,33 +7,53 @@
 #include <std_msgs/msg/bool.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <opencv2/opencv.hpp>
+#include <cv_bridge/cv_bridge.h>
 
-#include "track_worker.hpp"
 #include "logger.hpp"
+#include "tic_toc.hpp"
 
 using namespace std;
 using namespace common;
 
-class FeatureTracker : public rclcpp::Node {
+class FeatureTracker {
 public:
-    FeatureTracker();
+    FeatureTracker(bool equalize = true, int min_dist = 10);
+
     ~FeatureTracker();
-    void initialize();
+
+    void readImage(const cv::Mat &image, double cur_time, bool publish);
+
+    bool updateId(unsigned int i);
+
+    void setMask();
+
 private:
-    void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& msg);
+    bool equalize_;             // 是否进行直方图均衡化
 
-    bool first_image_flag_;
-    double first_image_time_;
-    double last_image_time_;
+    cv::Mat mask_;              // 特征检测掩码，控制新特征点的生成位置。
+    cv::Mat prev_img_;          // 前一帧
+    cv::Mat cur_img_;           // 当前处理帧
+    cv::Mat forw_img_;          // 后一帧
 
-    TrackWorker tracker_;
+    vector<cv::Point2f> n_pts_;
+    vector<cv::Point2f> prev_pts_, cur_pts_, forw_pts_;     // 特征点坐标
+    vector<cv::Point2f> prev_un_pts_, cur_un_pts_;          // 归一化特征点
+    vector<cv::Point2f> pts_velocity_;                      // 特征点速度
+    
+    vector<int> ids_;
+    vector<int> track_cnt_;
 
-    std::string sub_image_topic_;
-    image_transport::Subscriber image_subscriber_;
-    // 带特征跟踪结果的可视化图像
-    image_transport::Publisher match_publisher_;
-    // 特征点发布
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr feature_publisher_;
-    // 重启信号（当跟踪失败时触发）
-    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr restart_publisher_;
+    map<int, cv::Point2f> cur_un_pts_map_;
+    map<int, cv::Point2f> prev_un_pts_map_;
+    
+    double cur_time_;
+    double prev_time_;
+
+    int max_feature_cnt_;
+    int min_feature_dist_;
+    int cols_;                  // 当前图像的宽
+    int rows_;                  // 当前图像的高
+
+    static int n_id_;
 };

@@ -1,71 +1,69 @@
 #include "feature_tracker.hpp"
 
-FeatureTracker::FeatureTracker() : Node("feature_tracker") {
-    bool equalize = false;
-
-    first_image_flag_ = true;
+FeatureTracker::FeatureTracker(bool equalize, int min_dist) :
+        equalize_(equalize),
+        max_feature_cnt_(0) {
     
-    // 获取参数
-    declare_parameter("topic_name", "video_frames");
-    declare_parameter("equalize", true);
-    sub_image_topic_    = get_parameter("topic_name").as_string();
-    equalize            = get_parameter("equalize").as_bool();
-
-    tracker_.equalize_ = equalize;
 }
 
 FeatureTracker::~FeatureTracker() {
-
+    Logger::info("feature tracker deinit");
 }
 
-void FeatureTracker::initialize() {
-    Logger::init(this->shared_from_this());
-    Logger::info("feature tracker initialize");
-    
-    // 订阅消息并绑定响应函数
-    image_transport::ImageTransport it(shared_from_this());
-    image_subscriber_ = it.subscribe(
-        sub_image_topic_,    // topic 名称
-        100,            // 队列大小
-        std::bind(&FeatureTracker::imageCallback, this, std::placeholders::_1)
-    );
+void FeatureTracker::readImage(const cv::Mat &_img, double cur_time, bool publish) {
+    cv::Mat img;
+    if (equalize_) {
+        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+        clahe->apply(_img, img);
+        Logger::info("clahe equalize finished");
+    } else {
+        img = _img;
+    }
 
-    // 初始化发布重启信号
-    restart_publisher_ = create_publisher<std_msgs::msg::Bool>(
-        "/restart_signal",
-        10
-    );
+    cols_ = img.cols;
+    rows_ = img.rows;
+
+    if (forw_img_.empty()) {
+        prev_img_ = cur_img_ = forw_img_ = img;
+    }
+    else
+    {
+        forw_img_ = img;
+    }
+
+    forw_pts_.clear();
+
+    if (cur_pts_.size() > 0) {
+        vector<uchar> status;       // 跟踪成功1， 失败0
+        vector<float> err;          // 跟踪误差
+
+        cv::calcOpticalFlowPyrLK(cur_img_, forw_img_, cur_pts_, forw_pts_, status, err, cv::Size(21, 21), 3);
+
+        for (int i = 0; i < int(forw_pts_.size()); i++) {
+            // if (status[i] && !inBorder())
+        }
+    }
+
+    // 发送当前帧
+    if (publish) {
+        setMask();
+        int n_max_cnt = max_feature_cnt_ - forw_pts_.size();
+        if (n_max_cnt > 0) {
+            cv::goodFeaturesToTrack(forw_img_, n_pts_, n_max_cnt, 0.01, min_feature_dist_, mask_);
+        }
+    } else {
+        n_pts_.clear();
+    }
 }
 
-void FeatureTracker::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& img_msg) {
-    // 首帧初始化
-    rclcpp::Time stamp(img_msg->header.stamp);
+bool FeatureTracker::updateId(unsigned int i) {
+    return true;
+}
 
-    if (first_image_flag_) {
-        Logger::info("first frame initialize");
-        first_image_flag_ = false;
-        first_image_time_ = stamp.seconds();
-        last_image_time_ = stamp.seconds();
-        return;
+void FeatureTracker::setMask() {
+    mask_ = cv::Mat(rows_, cols_, CV_8UC1, cv::Scalar(255));
+    vector<pair<int, pair<cv::Point2f, int>>> cnt_pts_id;
+    for (unsigned int i = 0; i < forw_pts_.size(); i++) {
+        
     }
-
-    // 检测图像流不连续或者时间回退
-    if (stamp.seconds() - last_image_time_ > 1.0 ||
-        stamp.seconds() < last_image_time_) {
-        Logger::info("image discontinue! reset feature tracker");
-        first_image_flag_ = true;
-        last_image_time_ = 0;
-        auto msg = std_msgs::msg::Bool();
-        msg.data = true;
-        restart_publisher_->publish(msg);
-        return;
-    }
-
-    last_image_time_ = stamp.seconds();
-    Logger::info("received image time {}", last_image_time_);
-
-    cv_bridge::CvImageConstPtr ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
-    cv::Mat show_img = ptr->image;
-
-    tracker_.readImage(ptr->image, stamp.seconds());
 }

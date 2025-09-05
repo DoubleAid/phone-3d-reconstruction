@@ -1,10 +1,14 @@
 video_player:
   ros__parameters:
-    video_path: "/mnt/d/VW/fota/new1/unittest/data/office_video1.mp4"
-    loop: true
-    frame_rate: 10
+    video_path:         "/mnt/d/VW/fota/new1/unittest/data/office_video1.mp4"
+    loop:               true
+    frame_rate:         10
 
 feature_tracker:
   ros__parameters:
-    topic_name: "video_frames"
-    equalize: true              # 是否需要均衡化
+    topic_name:         "video_frames"    # 订阅的话题名称
+    camera_num:         1                 # 相机数量
+    equalize:           true              # 是否需要均衡化
+    max_feature_count:  150
+    min_feature_dist:   20
+    publush_frequence:  20                # 10

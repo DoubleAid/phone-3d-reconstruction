@@ -82,7 +82,6 @@ void VideoPlayer::publishFrame() {
     auto msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", frame).toImageMsg();
     msg->header.stamp = now();
     msg->header.frame_id = "camera_frame";
-    // msg->header.fields.push_bacck
     image_publisher_.publish(msg);
 
     current_frame_ = cap_.get(cv::CAP_PROP_POS_FRAMES);

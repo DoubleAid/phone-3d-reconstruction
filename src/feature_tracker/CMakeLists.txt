@@ -14,7 +14,6 @@ find_package(common REQUIRED)
 add_executable(feature_tracker_node
   src/feature_tracker_node.cpp
   src/feature_tracker.cpp
-  src/track_worker.cpp
 )
 
 target_include_directories(feature_tracker_node PRIVATE
@@ -36,6 +35,7 @@ target_link_libraries(feature_tracker_node
   ${OpenCV_LIBS}
   ${std_srvs_LIBRARIES}
   common::liblogger
+  common::libtime
 )
 
 # 安装可执行文件到 lib/<package_name>
