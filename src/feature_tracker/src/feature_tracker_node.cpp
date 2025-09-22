@@ -45,7 +45,7 @@ FeatureTrackerManager::FeatureTrackerManager()
     declare_parameter("min_feature_dist", 20);          // 两个特征点之间的最小距离
 
     camera_num_             = get_parameter("camera_num").as_int();
-    publish_frequence_      = get_parameter("publush_frequence").as_int();
+    publish_frequence_      = get_parameter("publish_frequence").as_int();
     sub_image_topic_        = get_parameter("topic_name").as_string();
 
     int min_dist            = get_parameter("min_feature_dist").as_int();

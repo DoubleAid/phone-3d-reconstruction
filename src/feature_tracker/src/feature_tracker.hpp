@@ -32,6 +32,8 @@ public:
 
     void rejectWithF();
 
+    bool inBorder(cv::Point2f);
+
 private:
     bool equalize_;             // 是否进行直方图均衡化
 
@@ -46,7 +48,7 @@ private:
     vector<cv::Point2f> pts_velocity_;                      // 特征点速度
     
     vector<int> ids_;
-    vector<int> track_cnt_;
+    vector<int> track_cnt_;                                 // 跟踪计数，记录每个特征点被连续跟踪的帧数
 
     map<int, cv::Point2f> cur_un_pts_map_;
     map<int, cv::Point2f> prev_un_pts_map_;
