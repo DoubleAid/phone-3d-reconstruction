@@ -1,8 +1,11 @@
 #include "feature_tracker.hpp"
 
-FeatureTracker::FeatureTracker(bool equalize, int min_dist) :
+int FeatureTracker::n_id_ = 0;
+
+FeatureTracker::FeatureTracker(bool equalize, int min_dist, int max_feature_cnt) :
         equalize_(equalize),
-        max_feature_cnt_(0) {
+        min_feature_dist_(min_dist),
+        max_feature_cnt_(max_feature_cnt) {
     
 }
 
@@ -53,7 +56,12 @@ void FeatureTracker::readImage(const cv::Mat &_img, double cur_time, bool publis
                 status[i] = 0;
             }
         }
-        
+        reduceVector(prev_pts_, status);
+        reduceVector(cur_pts_, status);
+        reduceVector(forw_pts_, status);
+        reduceVector(ids_, status);
+        reduceVector(cur_un_pts_, status);
+        reduceVector(track_cnt_, status);
     }
 
     // 发送当前帧
@@ -62,16 +70,29 @@ void FeatureTracker::readImage(const cv::Mat &_img, double cur_time, bool publis
         setMask();
         int n_max_cnt = max_feature_cnt_ - forw_pts_.size();
         if (n_max_cnt > 0) {
+            if (mask_.empty())
+                Logger::info("mask is empty");
+            Logger::info("额外增加 {} 个光流点", n_max_cnt);
             cv::goodFeaturesToTrack(forw_img_, n_pts_, n_max_cnt, 0.01, min_feature_dist_, mask_);
         } else {
             n_pts_.clear();
         }
         addPoints();
     }
+    prev_img_ = cur_img_;
+    prev_pts_ = cur_pts_;
+    prev_un_pts_ = cur_un_pts_;
+    cur_img_ = forw_img_;
+    cur_pts_ = forw_pts_;
+    prev_time_ = cur_time_;
 }
 
-bool FeatureTracker::updateId(unsigned int i) {
-    return true;
+void FeatureTracker::updateID() {
+    for (size_t i = 0; i < ids_.size(); i++) {
+        if (ids_[i] == -1) {
+            ids_[i] = n_id_++;
+        }
+    }
 }
 
 void FeatureTracker::setMask() {
@@ -112,4 +133,23 @@ void FeatureTracker::rejectWithF() {
 bool FeatureTracker::inBorder(cv::Point2f point) {
     Logger::info("point value [{}, {}] 图片尺寸 [{}, {}]", point.x, point.y, cols_, rows_);
     return true;
+}
+
+// 根据 status 删除部分节点
+void FeatureTracker::reduceVector(vector<cv::Point2f> &v, vector<uchar> status) {
+    int j = 0;
+    for (int i = 0; i < int(v.size()); i++) {
+        if (status[i])
+            v[j++] = v[i];
+    }
+    v.resize(j);
+}
+
+void FeatureTracker::reduceVector(vector<int> &v, vector<uchar> status) {
+    int j = 0;
+    for (int i = 0; i < int(v.size()); i++) {
+        if (status[i])
+            v[j++] = v[i];
+    }
+    v.resize(j);
 }

@@ -12,3 +12,4 @@ feature_tracker:
     max_feature_count:  150
     min_feature_dist:   20
     publush_frequence:  20                # 10
+    show_track:         true              # 是否显示光流跟踪点的图片

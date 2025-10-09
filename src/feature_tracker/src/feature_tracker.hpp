@@ -1,4 +1,5 @@
 #pragma once
+
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <cv_bridge/cv_bridge.h>
@@ -18,13 +19,14 @@ using namespace common;
 
 class FeatureTracker {
 public:
-    FeatureTracker(bool equalize = true, int min_dist = 10);
+    FeatureTracker(bool equalize = true, int min_dist = 10, int max_feature_cnt_ = 100);
 
     ~FeatureTracker();
 
     void readImage(const cv::Mat &image, double cur_time, bool publish);
 
-    bool updateId(unsigned int i);
+    // 因为新增的光流点没有id，所以便利所有的id，对于id为 -1 的点添加新的id
+    void updateID();
 
     void setMask();
 
@@ -33,6 +35,10 @@ public:
     void rejectWithF();
 
     bool inBorder(cv::Point2f);
+
+    void reduceVector(vector<cv::Point2f> &v, vector<uchar> status);
+
+    void reduceVector(vector<int> &v, vector<uchar> status);
 
 private:
     bool equalize_;             // 是否进行直方图均衡化

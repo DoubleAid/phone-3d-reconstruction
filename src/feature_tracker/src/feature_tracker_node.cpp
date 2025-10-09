@@ -23,12 +23,16 @@ private:
     int     camera_num_;
     int     publish_count_;
     int     publish_frequence_;         // frequence (Hz) of publish tracking result.
+    bool    init_publish_;
+    bool    show_track_;
     bool    first_image_flag_;
     double  first_image_time_;
     double  last_image_time_;
     string  sub_image_topic_;
 
+    // 光流追踪器
     vector<FeatureTracker>                      trackers_;
+
     image_transport::Subscriber                 image_subscriber_;
     image_transport::Publisher                  match_publisher_;       // 带特征跟踪结果的可视化图像
     rclcpp::Publisher<PointCloud2>::SharedPtr   feature_publisher_;     // 特征点发布
@@ -43,22 +47,25 @@ FeatureTrackerManager::FeatureTrackerManager()
     declare_parameter("max_feature_count", 150);        // 每一帧最大的特征点数
     declare_parameter("publish_frequence", 20);         // 发送频率，每秒钟发送的帧的个数
     declare_parameter("min_feature_dist", 20);          // 两个特征点之间的最小距离
+    declare_parameter("show_track", true);              // 显示包含光流追踪点的图片
 
     camera_num_             = get_parameter("camera_num").as_int();
     publish_frequence_      = get_parameter("publish_frequence").as_int();
     sub_image_topic_        = get_parameter("topic_name").as_string();
+    show_track_             = get_parameter("show_track").as_bool();
 
     int min_dist            = get_parameter("min_feature_dist").as_int();
-    int max_feature_cnt_    = get_parameter("max_feature_count").as_int();
+    int max_feature_cnt     = get_parameter("max_feature_count").as_int();
     bool equalize           = get_parameter("equalize").as_bool();
 
     first_image_flag_       = true;
     first_image_time_       = 0;
     last_image_time_        = 0;
     publish_count_          = 0;
+    init_publish
 
     for (size_t i = 0; i < camera_num_; i++) {
-        trackers_.emplace_back(equalize, min_dist);
+        trackers_.emplace_back(equalize, min_dist, max_feature_cnt);
     }
 }
 
@@ -91,52 +98,91 @@ void FeatureTrackerManager::imageCallback(const sensor_msgs::msg::Image::ConstSh
     bool publish_this_frame = true;
     rclcpp::Time stamp(img_msg->header.stamp);
 
-    if (first_image_flag_) {
-        Logger::info("first frame initialize");
-        first_image_flag_ = false;
-        first_image_time_ = stamp.seconds();
-        last_image_time_ = stamp.seconds();
-        return;
-    }
-
-    // 检测图像流不连续或者时间回退
-    if (stamp.seconds() - last_image_time_ > 1.0 ||
-        stamp.seconds() < last_image_time_) {
-        Logger::info("image discontinue! reset feature tracker");
-        first_image_flag_ = true;
-        last_image_time_ = 0;
-        auto msg = std_msgs::msg::Bool();
-        msg.data = true;
-        restart_publisher_->publish(msg);
-        return;
-    }
-
-    last_image_time_ = stamp.seconds();
-    Logger::info("received image time {}", last_image_time_);
-
-    if (round(1.0 * publish_count_ / (last_image_time_ - first_image_time_)) <= publish_frequence_) {
-        publish_this_frame = true;
-        if (abs(1.0 * publish_count_ / (stamp.seconds() - first_image_time_) - publish_frequence_) < 0.1 * publish_frequence_)
-        {
+    // 读取图片部分
+    {
+        if (first_image_flag_) {
+            Logger::info("first frame initialize");
+            first_image_flag_ = false;
             first_image_time_ = stamp.seconds();
-            publish_count_ = 0;
+            last_image_time_ = stamp.seconds();
+            return;
         }
-    } else {
-        publish_this_frame = false;
+
+        // 检测图像流不连续或者时间回退
+        if (stamp.seconds() - last_image_time_ > 1.0 ||
+            stamp.seconds() < last_image_time_) {
+            Logger::info("image discontinue! reset feature tracker");
+            first_image_flag_ = true;
+            last_image_time_ = 0;
+            auto msg = std_msgs::msg::Bool();
+            msg.data = true;
+            restart_publisher_->publish(msg);
+            return;
+        }
+
+        last_image_time_ = stamp.seconds();
+        Logger::info("received image time {}", last_image_time_);
+
+        if (round(1.0 * publish_count_ / (last_image_time_ - first_image_time_)) <= publish_frequence_) {
+            publish_this_frame = true;
+            if (abs(1.0 * publish_count_ / (stamp.seconds() - first_image_time_) - publish_frequence_) < 0.1 * publish_frequence_)
+            {
+                first_image_time_ = stamp.seconds();
+                publish_count_ = 0;
+            }
+        } else {
+            publish_this_frame = false;
+        }
+
+        cv_bridge::CvImageConstPtr ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
+        
+        // 这点是处理多个相机的问题，暂时不需要
+        for (size_t i = 0; i < camera_num_; i++) {
+            trackers_[i].readImage(ptr->image, stamp.seconds(), publish_this_frame);
+        }
+
+        // 更新光流点 id
+        for (size_t i = 0; i < camera_num_; i++) {
+            trackers_[i].updateID();
+        }
     }
 
-    cv_bridge::CvImageConstPtr ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
+    // 发送订阅数据部分
+    {
+        if (publish_this_frame) {
+            publish_count_++;
 
-    trackers_[0].readImage(ptr->image, stamp.seconds(), publish_this_frame);
+            // 创建 PointCloud2 消息
+            shared_ptr<PointCloud2> feature_points = std::make_shared<PointCloud2>();
+            feature_points->header = img_msg->header;
+            feature_points->header.frame_id = "world";
+            feature_points->height = 1;
+            feature_points->is_dense = false;
 
-    for (unsigned int i = 0;; i++) {
-        trackers_[0].updateId(i);
-    }
+            // 清除 field 并添加字段
+            feature_points->fields.clear();
+            
+            int offset = 0;
+            auto addField = [&](const std::string& name, uint8_t data_type, uint32_t count) {
+                sensor_msgs::msg::PointField field;
+                field.name = name;
+                field.offset = offset;
+                field.datatype = datatype;
+                field.count = count;
+                feature_points->fields.push_back(field);
+                offset += count * sizeof(float);        // 假设都是 float
+            }
 
-    if (publish_this_frame) {
-        publish_count_++;
-        // sensor_msgs::msg::PointCloud2
-        // int n_max_cnt = max_feature_cnt_ - static_cast<int>(forw_pts_.size())
+            for (size_t i = 0; i < camera_num_; i++) {
+                // auto &un_pts = trackers_[i].cur_un_pts
+                // for (size_t j = 0; j < )
+            }
+
+            // 构建特征点列表并发送
+
+            // 发送含有光流点的图片
+            // if ()
+        }
     }
 }
 
