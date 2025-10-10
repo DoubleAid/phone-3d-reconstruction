@@ -40,7 +40,6 @@ public:
 
     void reduceVector(vector<int> &v, vector<uchar> status);
 
-private:
     bool equalize_;             // 是否进行直方图均衡化
 
     cv::Mat mask_;              // 特征检测掩码，控制新特征点的生成位置。
@@ -53,8 +52,8 @@ private:
     vector<cv::Point2f> prev_un_pts_, cur_un_pts_;          // 归一化特征点
     vector<cv::Point2f> pts_velocity_;                      // 特征点速度
     
-    vector<int> ids_;
-    vector<int> track_cnt_;                                 // 跟踪计数，记录每个特征点被连续跟踪的帧数
+    vector<int> ids_;                                       // 当前所有光流点的id
+    vector<int> track_cnt_;                                 // 跟踪计数，记录每个特征点被连续跟踪的帧数, 1 表示没有跟踪，数目表示连续图片跟踪的数目
 
     map<int, cv::Point2f> cur_un_pts_map_;
     map<int, cv::Point2f> prev_un_pts_map_;

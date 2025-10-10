@@ -1,5 +1,5 @@
 video_player:
   ros__parameters:
-    video_path: "/mnt/d/VW/fota/new1/unittest/data/office_video1.mp4"
+    video_path: "/mnt/d/VW/fota/new1/unittest/data/dji_mimo_20251006_165752_0_1759934768534_video.mp4"
     loop: true
     frame_rate: 10

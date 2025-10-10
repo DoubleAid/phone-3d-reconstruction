@@ -29,7 +29,8 @@ ros2 run feature_tracker feature_tracker_node
 
 ```bash
 # 1. 检查路径解析
-ros2 launch video_player video_player.launch.py
+# ros2 launch video_player video_player.launch.py
+ros2 launch feature_tracker feature_tracker.launch.py
 # 2. 查看实际加载的参数
 ros2 param list
 # 3. 确认视频文件路径
