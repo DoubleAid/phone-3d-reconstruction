@@ -40,6 +40,10 @@ public:
 
     void reduceVector(vector<int> &v, vector<uchar> status);
 
+    void undistortedPoints();   // 去畸变并计算光流运行速度
+
+    void calculateVelocity();   // 计算跟踪点移动的速度
+
     bool equalize_;             // 是否进行直方图均衡化
 
     cv::Mat mask_;              // 特征检测掩码，控制新特征点的生成位置。

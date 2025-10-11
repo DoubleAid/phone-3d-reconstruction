@@ -158,7 +158,7 @@ void FeatureTrackerManager::imageCallback(const sensor_msgs::msg::Image::ConstSh
             // 创建 PointCloud2 消息
             shared_ptr<PointCloud2> feature_points = std::make_shared<PointCloud2>();
             feature_points->header = img_msg->header;
-            feature_points->header.frame_id = "world";
+            feature_points->header.frame_id = "odom";
             feature_points->height = 1;
             feature_points->is_dense = false;
 

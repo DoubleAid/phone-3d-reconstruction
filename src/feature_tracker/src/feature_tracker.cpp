@@ -84,6 +84,8 @@ void FeatureTracker::readImage(const cv::Mat &_img, double cur_time, bool publis
     prev_un_pts_ = cur_un_pts_;
     cur_img_ = forw_img_;
     cur_pts_ = forw_pts_;
+    undistortedPoints();
+    calculateVelocity();
     prev_time_ = cur_time_;
 }
 
@@ -152,4 +154,44 @@ void FeatureTracker::reduceVector(vector<int> &v, vector<uchar> status) {
             v[j++] = v[i];
     }
     v.resize(j);
+}
+
+// 归一化坐标转换和去畸变
+void FeatureTracker::undistortedPoints() {
+    cur_un_pts_.clear();
+    cur_un_pts_map_.clear();
+    for (size_t i = 0; i < cur_pts_.size(); i++) {
+        double x = cur_pts_[i].x / cols_;
+        double y = cur_pts_[i].y / rows_;
+
+        cur_un_pts_.push_back(cv::Point2f(x, y));
+        cur_un_pts_map_.insert(make_pair(ids_[i], cv::Point2f(x, y)));
+    }
+}
+
+void FeatureTracker::calculateVelocity() {
+    if (prev_un_pts_map_.empty()) {
+        double dt = cur_time_ - prev_time_;
+        pts_velocity_.clear();
+        for (size_t i = 0; i < cur_un_pts_.size(); i++) {
+            if (ids_[i] != -1) {
+                std::map<int, cv::Point2f>::iterator it;
+                it = prev_un_pts_map_.find(ids_[i]);
+                if (it != prev_un_pts_map_.end()) {
+                    double v_x = (cur_un_pts_[i].x - it->second.x) / dt;
+                    double v_y = (cur_un_pts_[i].y - it->second.y) / dt;
+                    pts_velocity_.push_back(cv::Point2f(v_x, v_y));
+                } else {
+                    pts_velocity_.push_back(cv::Point2f(0, 0));
+                }
+            } else {
+                pts_velocity_.push_back(cv::Point2f(0, 0));
+            }
+        }
+    } else {
+        for (size_t i = 0; i < cur_pts_.size(); i++) {
+            pts_velocity_.push_back(cv::Point2f(0, 0));
+        }
+    }
+    prev_un_pts_map_ = cur_un_pts_map_;
 }
