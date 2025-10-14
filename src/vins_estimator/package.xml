@@ -1,5 +1,5 @@
 <package format="3">
-    <name> vins_estimator</name>
+    <name>vins_estimator</name>
     <version>0.0.1</version>
     <description>Vins estimator node for 3D reconstruction</description>
     <maintainer email="simthkbro@gmail.com">DoubleAids</maintainer>

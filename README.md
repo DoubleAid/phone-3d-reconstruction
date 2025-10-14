@@ -23,6 +23,7 @@ unset CMAKE_PREFIX_PATH
 source install/setup.bash
 
 ros2 run feature_tracker feature_tracker_node
+ros2 run vins_estimator vins_estimator_node
 ```
 
 ## 集成运行
@@ -49,7 +50,11 @@ ros2 param get /video_player video_path
 + 输入： 订阅 /video_frames 话题(Image 消息)
 + 处理：
     + 计算关键点和描述子，匹配相邻帧之间的特征点
-+ 输出
++ 输出 每一关键帧的关键点
+
+### 位姿估计
+
+### 位姿图优化
 
 ### 稀疏重建 SFM
 

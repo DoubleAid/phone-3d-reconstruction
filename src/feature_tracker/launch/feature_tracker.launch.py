@@ -6,7 +6,7 @@ import os
 
 def generate_launch_description():
     # 获取包的路径
-    yaml_path = get_package_share_directory('video_player')
+    yaml_path = get_package_share_directory('feature_tracker')
 
     # 获取参数文件路径
     params_file = os.path.join(yaml_path, 'config', 'params.yaml')
@@ -26,6 +26,12 @@ def generate_launch_description():
             package='feature_tracker',
             executable ="feature_tracker_node",
             name="feature_tracker",
+            parameters=[params_file],
+        ),
+        Node(
+            package = "vins_estimator",
+            executable = "vins_estimator_node",
+            name="vins_estimator",
             parameters=[params_file],
         )
     ])

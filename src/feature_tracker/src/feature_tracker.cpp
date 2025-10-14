@@ -28,14 +28,12 @@ void FeatureTracker::readImage(const cv::Mat &_img, double cur_time, bool publis
     // 更新图片的尺寸
     cols_ = img.cols;
     rows_ = img.rows;
-    Logger::info("更新图片尺寸 [{}, {}]", cols_, rows_);
 
     // 如果前一帧是空的，也就是没有初始化，就先进性初始化
     if (forw_img_.empty()) {
         prev_img_ = cur_img_ = forw_img_ = img;
-    }
-    else
-    {
+        Logger::info("更新图片尺寸 [{}, {}]", cols_, rows_);
+    } else {
         forw_img_ = img;
     }
 
@@ -62,6 +60,11 @@ void FeatureTracker::readImage(const cv::Mat &_img, double cur_time, bool publis
         reduceVector(ids_, status);
         reduceVector(cur_un_pts_, status);
         reduceVector(track_cnt_, status);
+    }
+
+    // 更新追踪数目
+    for (auto &n : track_cnt_) {
+        n++;
     }
 
     // 发送当前帧
@@ -133,7 +136,11 @@ void FeatureTracker::rejectWithF() {
 }
 
 bool FeatureTracker::inBorder(cv::Point2f point) {
-    Logger::info("point value [{}, {}] 图片尺寸 [{}, {}]", point.x, point.y, cols_, rows_);
+    const int BORDER_SIZE = 5;
+    int img_x = cvRound(point.x);
+    int img_y = cvRound(point.y);
+    if (img_x <= BORDER_SIZE || img_x >= cols_ - BORDER_SIZE || img_y <= BORDER_SIZE || img_y >= rows_ - BORDER_SIZE)
+        return false;
     return true;
 }
 
