@@ -9,6 +9,7 @@ find_package(OpenCV REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(common REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 # 添加可执行文件
 add_executable(vins_estimator_node
@@ -18,6 +19,7 @@ add_executable(vins_estimator_node
 target_include_directories(vins_estimator_node PRIVATE
   ${Boost_INCLUDE_DIRS}
   ${std_srvs_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
 )
 
 ament_target_dependencies(vins_estimator_node
@@ -31,6 +33,7 @@ target_link_libraries(vins_estimator_node
   rclcpp::rclcpp
   cv_bridge::cv_bridge
   image_transport::image_transport
+
   ${OpenCV_LIBS}
   ${std_srvs_LIBRARIES}
   common::liblogger

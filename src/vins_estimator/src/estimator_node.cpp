@@ -1,4 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
+#include <map>
 #include <thread>
 #include <queue>
 #include <mutex>
@@ -6,6 +7,8 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <Eigen/Dense>
+#include <opencv2/core/eigen.hpp>
 #include "estimator.hpp"
 
 using namespace std;
@@ -14,6 +17,8 @@ using namespace sensor_msgs::msg;
 using namespace common;
 
 using PointCloudPtr = sensor_msgs::msg::PointCloud2::SharedPtr;
+
+#define X(a, b) a + b
 
 class VinsEstimatorManager : public rclcpp::Node {
 public:
@@ -35,14 +40,16 @@ private:
 
     rclcpp::Subscription<Bool>::SharedPtr restart_subscriptor_;
     // 特征点数据
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr feature_subscriptor_;
+    rclcpp::Subscription<PointCloud2>::SharedPtr feature_subscriptor_;
     // 回环检测订阅点
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr relocal_subscriptor_;
+    rclcpp::Subscription<PointCloud2>::SharedPtr relocal_subscriptor_;
 };
 
 VinsEstimatorManager::VinsEstimatorManager() 
     : Node("vins_estimator"), feature_init_(false) {
-    feature_subscriptor_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    declare_parameter("camera_num", 1);
+    
+    feature_subscriptor_ = this->create_subscription<PointCloud2>(
         "/feature", 
         100,
         std::bind(&VinsEstimatorManager::featureCallback, this, std::placeholders::_1)
@@ -69,7 +76,7 @@ void VinsEstimatorManager::initialize() {
     });
 }
 
-void VinsEstimatorManager::featureCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+void VinsEstimatorManager::featureCallback(const PointCloudPtr msg) {
     Logger::info("收到 feature 消息：");
     Logger::info("      帧id : {}", msg->header.frame_id);
     Logger::info("      点数 : 宽 {} X 高 {}", msg->width, msg->height);
@@ -105,12 +112,31 @@ void VinsEstimatorManager::process() {
         lock.unlock();
 
         for (auto &measurement : measurements) {
-            
+            auto img_msg = measurement;
+            map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image;
+            sensor_msgs::PointCloud2Iterator<float> iter_x(*img_msg, "x");
+            sensor_msgs::PointCloud2Iterator<float> iter_y(*img_msg, "y");
+            sensor_msgs::PointCloud2Iterator<float> iter_z(*img_msg, "z");
+            sensor_msgs::PointCloud2Iterator<float> iter_id(*img_msg, "id");
+            sensor_msgs::PointCloud2Iterator<float> iter_u(*img_msg, "u");
+            sensor_msgs::PointCloud2Iterator<float> iter_v(*img_msg, "v");
+            sensor_msgs::PointCloud2Iterator<float> iter_vx(*img_msg, "velocity_x");
+            sensor_msgs::PointCloud2Iterator<float> iter_vy(*img_msg, "velocity_y");
+
+            for (size_t i = 0; i < img_msg->width; i++) {
+                float x = *iter_x; float y = *iter_y; float z = *iter_z; float id = *iter_id;
+                float u = *iter_u; float v = *iter_v; float vx = *iter_vx; float vy = *iter_vy;
+                // 解析 id
+
+                // Eigen::Matrix<double, 7, 1>
+                ++iter_x; ++iter_y; ++iter_z; ++iter_id;
+                ++iter_u; 
+            }
         }
     }
 }
 
-std::vector<PointCloud2::SharedPtr> VinsEstimatorManager::getMeasurements() {
+std::vector<PointCloudPtr> VinsEstimatorManager::getMeasurements() {
     std::vector<PointCloud2::SharedPtr> measurements;
     if (!feature_queue_.empty()) {
         measurements.emplace_back(feature_queue_.front());

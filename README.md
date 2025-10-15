@@ -26,6 +26,25 @@ ros2 run feature_tracker feature_tracker_node
 ros2 run vins_estimator vins_estimator_node
 ```
 
+### 测试命令
+
+```bash
+## 录包
+ros2 bag record /your_topic_name
+ros2 bag record /topic1 /topic2
+ros2 bag record -o output_file /topic_name
+
+## 播包
+ros2 bag play my_bag
+### 以特定速率播放
+ros2 bag play my_bag --rate 0.5
+ros2 bag play my_bag --rate 2.0
+
+### 循环播放
+ros2 bag play my_bag --loop
+
+```
+
 ## 集成运行
 
 ```bash

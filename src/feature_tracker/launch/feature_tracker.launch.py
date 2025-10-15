@@ -10,28 +10,32 @@ def generate_launch_description():
 
     # 获取参数文件路径
     params_file = os.path.join(yaml_path, 'config', 'params.yaml')
+    camera_params_file = os.path.join(yaml_path, 'config', 'camera_params.yaml')
 
     # 确保参数文件存在
     if not os.path.exists(params_file):
         raise FileNotFoundError(f"Config file not found: {params_file}")
+    
+    if not os.path.exists(camera_params_file):
+        raise FileNotFoundError(f"Camera config file not found: {camera_params_file}")
     
     return LaunchDescription([
         Node(
             package='video_player',
             executable="video_player_node",
             name="video_player",
-            parameters=[params_file],
+            parameters=[params_file, camera_params_file],
         ),
         Node(
             package='feature_tracker',
             executable ="feature_tracker_node",
             name="feature_tracker",
-            parameters=[params_file],
+            parameters=[params_file, camera_params_file],
         ),
         Node(
             package = "vins_estimator",
             executable = "vins_estimator_node",
             name="vins_estimator",
-            parameters=[params_file],
+            parameters=[params_file, camera_params_file],
         )
     ])

@@ -5,4 +5,7 @@
 class Estimator {
 public:
     Estimator();
+    void processImage();
+
+    void clearState();
 };
