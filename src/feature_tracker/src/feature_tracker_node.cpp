@@ -41,7 +41,7 @@ private:
 
 FeatureTrackerManager::FeatureTrackerManager()
     : Node("feature_tracker") {
-    declare_parameter("camera_global.camera_num", 1);                 // 相机数量
+    declare_parameter("camera_num", 0);   // 相机数量
     declare_parameter("topic_name", "video_frames");    // 订阅的图片话题
     declare_parameter("equalize", true);                // 是否对图片进行直方图均衡化
     declare_parameter("max_feature_count", 150);        // 每一帧最大的特征点数
@@ -49,7 +49,7 @@ FeatureTrackerManager::FeatureTrackerManager()
     declare_parameter("min_feature_dist", 20);          // 两个特征点之间的最小距离
     declare_parameter("show_track", true);              // 显示包含光流追踪点的图片
 
-    camera_num_             = get_parameter("camera_global.camera_num").as_int();
+    camera_num_             = get_parameter("camera_num").as_int();
     publish_frequence_      = get_parameter("publish_frequence").as_int();
     sub_image_topic_        = get_parameter("topic_name").as_string();
     show_track_             = get_parameter("show_track").as_bool();
@@ -73,10 +73,6 @@ void FeatureTrackerManager::initialize() {
     Logger::init(this->shared_from_this());
     Logger::info("feature tracker manager initialize");
 
-    declare_parameter("camera_calibration.cx", 10);
-    int cx = get_parameter("camera_calibration.cx").as_int();
-    Logger::info("cx is {}", cx);
-    Logger::info("camera num {}", camera_num_);
     camera_num_ = 1;
 
     // 订阅图片消息并绑定相应函数

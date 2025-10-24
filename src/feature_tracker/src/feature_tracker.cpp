@@ -20,7 +20,6 @@ void FeatureTracker::readImage(const cv::Mat &_img, double cur_time, bool publis
     if (equalize_) {
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
         clahe->apply(_img, img);
-        Logger::info("clahe equalize finished");
     } else {
         img = _img;
     }

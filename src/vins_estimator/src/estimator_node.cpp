@@ -18,8 +18,6 @@ using namespace common;
 
 using PointCloudPtr = sensor_msgs::msg::PointCloud2::SharedPtr;
 
-#define X(a, b) a + b
-
 class VinsEstimatorManager : public rclcpp::Node {
 public:
     VinsEstimatorManager();
@@ -32,6 +30,9 @@ public:
 
 private:
     bool feature_init_;
+    int camera_num_;
+    Estimator estimator_;
+
     std::mutex feature_mutex_;
     std::condition_variable feature_available_;
     std::thread measurement_thread_;
@@ -49,6 +50,8 @@ VinsEstimatorManager::VinsEstimatorManager()
     : Node("vins_estimator"), feature_init_(false) {
     declare_parameter("camera_num", 1);
     
+    camera_num_ = get_parameter("camera_num").as_int();
+
     feature_subscriptor_ = this->create_subscription<PointCloud2>(
         "/feature", 
         100,
@@ -123,15 +126,24 @@ void VinsEstimatorManager::process() {
             sensor_msgs::PointCloud2Iterator<float> iter_vx(*img_msg, "velocity_x");
             sensor_msgs::PointCloud2Iterator<float> iter_vy(*img_msg, "velocity_y");
 
+            map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image;
             for (size_t i = 0; i < img_msg->width; i++) {
                 float x = *iter_x; float y = *iter_y; float z = *iter_z; float id = *iter_id;
                 float u = *iter_u; float v = *iter_v; float vx = *iter_vx; float vy = *iter_vy;
                 // 解析 id
+                int fid = (int)id / camera_num_; 
+                int cid = (int)id % camera_num_;
 
-                // Eigen::Matrix<double, 7, 1>
+                Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
+                xyz_uv_velocity << x, y, z, u, v, vx, vy;
+                
+                image[fid].emplace_back(cid, xyz_uv_velocity);
+
                 ++iter_x; ++iter_y; ++iter_z; ++iter_id;
-                ++iter_u; 
+                ++iter_u; ++iter_v; ++iter_vx; ++iter_vy;
             }
+
+            estimator_.processImage(image);
         }
     }
 }

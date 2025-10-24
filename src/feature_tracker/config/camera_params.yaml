@@ -1,8 +1,3 @@
-camera_global:
+/**:
   ros__parameters:
-    camera_num: 12                           # 相机数量
-
-camera_calibration:
-  ros__parameters:
-    cx: 540
-    cy: 960
+    camera_num: 1                           # 相机数量
