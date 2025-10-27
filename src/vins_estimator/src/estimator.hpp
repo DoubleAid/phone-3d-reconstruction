@@ -7,6 +7,18 @@
 #include "logger.hpp"
 
 using namespace std;
+using namespace common;
+
+enum SolverFlag {
+    INITIAL,            // 初始化状态
+    NON_LINERA          // 非线性优化
+};
+
+// 边缘化策略
+enum MarginalizationFlag {
+    MARGIN_OLD          = 0,    // 优化最老帧
+    MARGIN_SECOND_NEW   = 1,    // 优化上一帧
+};
 
 class Estimator {
 public:
@@ -19,6 +31,8 @@ public:
 private:
     FeatureManager f_manager;
 
+    SolverFlag solver_flag_;
+    MarginalizationFlag marginalization_flag_;
     // 当前滑动窗口中的帧数
     int frame_count_;
 };

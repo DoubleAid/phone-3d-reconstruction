@@ -47,7 +47,8 @@ private:
 };
 
 VinsEstimatorManager::VinsEstimatorManager() 
-    : Node("vins_estimator"), feature_init_(false) {
+    : Node("vins_estimator"), feature_init_(false), estimator_() {
+    // 配置变量声明
     declare_parameter("camera_num", 1);
     
     camera_num_ = get_parameter("camera_num").as_int();
@@ -126,7 +127,6 @@ void VinsEstimatorManager::process() {
             sensor_msgs::PointCloud2Iterator<float> iter_vx(*img_msg, "velocity_x");
             sensor_msgs::PointCloud2Iterator<float> iter_vy(*img_msg, "velocity_y");
 
-            map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image;
             for (size_t i = 0; i < img_msg->width; i++) {
                 float x = *iter_x; float y = *iter_y; float z = *iter_z; float id = *iter_id;
                 float u = *iter_u; float v = *iter_v; float vx = *iter_vx; float vy = *iter_vy;
@@ -143,7 +143,11 @@ void VinsEstimatorManager::process() {
                 ++iter_u; ++iter_v; ++iter_vx; ++iter_vy;
             }
 
-            estimator_.processImage(image);
+            estimator_.processImage(image, img_msg->header);
+            std_msgs::msg::Header header = img_msg->header;
+            header.frame_id = "world";
+
+            // 发布结果
         }
     }
 }
@@ -156,6 +160,7 @@ std::vector<PointCloudPtr> VinsEstimatorManager::getMeasurements() {
     }
     return measurements;
 }
+
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);

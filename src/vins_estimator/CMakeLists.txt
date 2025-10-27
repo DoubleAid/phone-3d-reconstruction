@@ -14,6 +14,8 @@ find_package(Eigen3 REQUIRED)
 # 添加可执行文件
 add_executable(vins_estimator_node
   src/estimator_node.cpp
+  src/estimator.cpp
+  src/feature_manager.cpp
 )
 
 target_include_directories(vins_estimator_node PRIVATE

@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
+#include <std_msgs/msg/header.hpp>
+#include <map>
 
 using namespace std;
 using namespace Eigen;
