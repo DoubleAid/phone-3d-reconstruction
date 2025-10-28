@@ -22,7 +22,7 @@ enum MarginalizationFlag {
 
 class Estimator {
 public:
-    Estimator();
+    Estimator(int window_size);
 
     void processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const std_msgs::msg::Header &header);
 
@@ -31,8 +31,13 @@ public:
 private:
     FeatureManager f_manager;
 
-    SolverFlag solver_flag_;
-    MarginalizationFlag marginalization_flag_;
+    int window_size_;
     // 当前滑动窗口中的帧数
     int frame_count_;
+
+    vector<std_msgs::msg::Header> headers_;
+
+    SolverFlag solver_flag_;
+
+    MarginalizationFlag marginalization_flag_;
 };

@@ -50,8 +50,12 @@ VinsEstimatorManager::VinsEstimatorManager()
     : Node("vins_estimator"), feature_init_(false), estimator_() {
     // 配置变量声明
     declare_parameter("camera_num", 1);
+    declare_parameter("window_size", 10);
     
     camera_num_ = get_parameter("camera_num").as_int();
+
+    int window_size = get_parameter("window_size").as_int();
+    estimator_ = Estimator(window_size);
 
     feature_subscriptor_ = this->create_subscription<PointCloud2>(
         "/feature", 

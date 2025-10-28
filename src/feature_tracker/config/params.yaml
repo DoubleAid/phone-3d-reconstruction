@@ -13,3 +13,7 @@ feature_tracker:
     min_feature_dist:   20
     publush_frequence:  20                # 10
     show_track:         true              # 是否显示光流跟踪点的图片
+
+vins_estimator:
+  ros__parameters:
+    window_size:        10
