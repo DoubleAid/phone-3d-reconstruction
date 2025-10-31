@@ -31,23 +31,31 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
         // 强制视为关键帧，确保系统能够快速初始化或回复跟踪
         return true;
     }
+
     for (auto& it_per_id: feature_) {
         // 要满足两个条件
         //  1. 起始帧和当前帧的间隔大于等于2， 也就是至少要有三帧，可以用来计算视差
         //  2. 这个特征从start_frame一直持续到当前帧
         if (it_per_id.start_frame <= frame_count - 2 &&
             it_per_id.start_frame + int(it_per_id.feature_per_frame.size()) >= frame_count) {
-            
+            parallax_sum += compensatedParallax2(it_per_id, frame_count);
+            // 参与计算的共视特征
+            parallax_num++;
         }
     }
 
-    return true;
+    if (parallax_num == 0) {
+        return true;
+    } else {
+        return parallax_sum / parallax_num >= MIN_PARALLAX;
+    }
 }
 
 void FeatureManager::clearState() {
 
 }
 
+// 在 
 double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int frame_count) {
     // frame_i = frame_per_frame[-3]
     // frame_j = frame_per_frame[-2]
@@ -63,5 +71,26 @@ double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int f
     Vector3d p_i = frame_i.point;
     Vector3d p_i_comp;
 
-    return 0;
+    // 在没有IMU的情况下，没办法提前知道特征点的旋转位置，就还是计算在归一化坐标下的位移
+    p_i_comp = p_i;
+    
+    double z_i = p_i(2);
+    double u_i = p_i(0) / z_i;
+    double v_i = p_i(1) / z_i;
+    double du = u_i - u_j;
+    double dv = v_i - v_j;
+
+    double z_i_comp = p_i_comp(2);
+    double u_i_comp = p_i_comp(0) / z_i_comp;
+    double v_i_comp = p_i_comp(1) / z_i_comp;
+    double du_comp = u_i_comp - u_j;
+    double dv_comp = v_i_comp - v_j;
+
+    ans = max(ans, sqrt(min(du * du + dv * dv, du_comp * du_comp + dv_comp * dv_comp)));
+
+    return ans;
+}
+
+void triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[]) {
+    
 }

@@ -11,6 +11,23 @@
 using namespace std;
 using namespace Eigen;
 
+const double MIN_PARALLAX = 10.0;
+
+using FeaturePointList = map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>>;
+
+class ImageFrame {
+public:
+    ImageFrame() {}
+    ImageFrame(const FeaturePointList& _points, double _t) : t{_t}, is_key_frame(false) {
+        points = _points;
+    };
+    FeaturePointList points;
+    double t;
+    Matrix3d R;
+    Matrix3d T;
+    bool is_key_frame;
+};
+
 class FeaturePerFrame {
 public:
     FeaturePerFrame(const Eigen::Matrix<double, 7, 1> &_point) {
@@ -52,9 +69,11 @@ public:
     int getFeatureCount();
     bool addFeatureCheckParallax(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7,1>>>> &image);
     void clearState();
-
+    void triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
 private:
     double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);
     list<FeaturePerId> feature_;
     int last_track_num_;
+    // const Matrix3d *Rs;
+    // Matrix3d ric_[NUM_OF_CAM];
 };

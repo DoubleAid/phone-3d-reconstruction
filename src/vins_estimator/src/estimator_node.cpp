@@ -47,7 +47,7 @@ private:
 };
 
 VinsEstimatorManager::VinsEstimatorManager() 
-    : Node("vins_estimator"), feature_init_(false), estimator_() {
+    : Node("vins_estimator"), feature_init_(false) {
     // 配置变量声明
     declare_parameter("camera_num", 1);
     declare_parameter("window_size", 10);
