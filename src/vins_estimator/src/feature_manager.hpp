@@ -60,7 +60,7 @@ public:
 
     }
 
-    int endFrame();
+    int endFrame() const;
 };
 
 class FeatureManager {
@@ -70,8 +70,8 @@ public:
     bool addFeatureCheckParallax(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7,1>>>> &image);
     void clearState();
     void triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
-private:
     double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);
+    
     list<FeaturePerId> feature_;
     int last_track_num_;
     // const Matrix3d *Rs;

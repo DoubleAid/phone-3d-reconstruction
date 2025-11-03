@@ -1,5 +1,9 @@
 #include "feature_manager.hpp"
 
+int FeaturePerId::endFrame() const {
+    return start_frame + feature_per_frame.size() - 1;
+}
+
 FeatureManager::FeatureManager() {
 
 }
@@ -92,5 +96,5 @@ double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int f
 }
 
 void triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[]) {
-    
+
 }
