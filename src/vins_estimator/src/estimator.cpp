@@ -130,10 +130,10 @@ bool Estimator::visualInitialAlign() {
     }
 
     // 步骤五：全局BA优化
-    // if (!globalBundleAdjunstment()) {
-    //     Logger::info("");
-    //     return false;
-    // }
+    if (!globalBundleAdjunstment()) {
+        Logger::info("");
+        return false;
+    }
 
     return true;
 }
@@ -321,10 +321,53 @@ int Estimator::triangulateAllPoints(int ref_frame) {
     return success_count;
 }
 
-bool Estimator::triangulatePoint(const FeaturePerId& feat_per_frame, Eigen::Vector3d& point_3d) {
+bool Estimator::triangulatePoint(const FeaturePerId& feature, Eigen::Vector3d& point_3d) {
     // 使用最小二乘法进行三角化
     // 已经知道位姿 和 点在图像上的投影，求解点的位置
+
+    // 假设 P = K[R | t] 为 一个 3 x 4 的矩阵 设为 P = [p1^T, p2^T, p3^T]^T
+    // 设 特征点的空间坐标 X = [x, y, z, 1]^T
+    // (p_1 - u p_3)X = 0
+    // (p_2 - v p_3)X = 0
+
     Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
 
-    for (const auto& obs)
+    int frame_length = feature.feature_per_frame.size();
+    for (size_t i = 0; i < frame_length; i++) {
+        int frame_idx = i + feature.start_frame;
+
+        Eigen::Matrix3d R = Rs[frame_idx];
+        Eigen::Vector3d t = Ps[frame_idx];
+        Eigen::Vector2d pt = feature.feature_per_frame[i].point;
+
+        Eigen::Vector3d u(pt.x(), pt.y(), 1.0);
+        Eigen::Matrix<double, 3, 4> P;
+        P.leftCols<3>() = R.transpose();
+        P.rightCols<1>() = -R.transpose() * t;  // P = [R^T | -R^T*t]
+
+        Eigen::Matrix<double, 2, 4> eq;
+        eq.row(0) = u(0) * P.row(2) - P.row(0); // eq.x = x * p3 - p1
+        eq.row(1) = u(1) * P.row(2) - P.row(1); // eq.y = y * p3 - p2
+
+        A += eq.transpose() * eq;
+    }
+
+    Eigen::JacobiSVD<Eigen::Matrix4d> svd(A, Eigen::ComputeFullV);
+    Eigen::Vector4d point_homo = svd.matrixV().col(3);
+
+    if (std::abs(point_homo(3)) < 1e-8) {
+        return false;
+    }
+
+    point_3d = point_homo.head<3>() / point_homo(3);
+
+    // 检查深度为正
+    if (point_3d(2) < 0) {
+        return false;
+    }
+    return true;
+}
+
+bool globalBundleAdjustment(int ref_frame) {
+    return true;
 }
