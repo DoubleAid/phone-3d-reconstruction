@@ -1,27 +1,30 @@
 #include "estimator.hpp"
 
+// using namespace Logger;
+
 Estimator::Estimator(int window_size) :
-    window_size_(window_size) {
-    headers_.resize(window_size_);
+    window_size_(window_size + 1) {
+    headers_.resize(window_size_ + 1);
     frame_count_ = 0;
     need_online_calibration_ = false;
     Rs.resize(window_size_ + 1);
     Vs.resize(window_size_ + 1);
-    Rs.resize(window_size_ + 1);
+    Ps.resize(window_size_ + 1);
+    solver_flag_ = INITIAL;
 }
 
 void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const std_msgs::msg::Header &header) {
-    Logger::info("new image comming ----------------------------");
-
+    Logger::info("new image comming ----------- current frame count: {}", frame_count_);
     // 判断特征点并检查时差 （判断是否为关键帧) frame_count_ 是当前帧的计数，也可以理解成当前帧的id
     if (f_manager.addFeatureCheckParallax(frame_count_, image)) {
         marginalization_flag_ = MARGIN_OLD;         // 如果视差足够大，标记为关键帧，边缘化旧帧
     } else {
         marginalization_flag_ = MARGIN_SECOND_NEW;  // 视差小，标记为非关键帧，边缘化上一帧
     }
-
-    Logger::debug("this frame is --------------- %s", marginalization_flag_ ? "reject" : "accept");
-
+    // 在非线性优化阶段，可以判断是接受该帧或者拒绝
+    if (solver_flag_ == NON_LINERA) {
+        Logger::info("this frame is --------------- {}", marginalization_flag_ != 0? "reject" : "accept");
+    }
     headers_[frame_count_] = header;
     double seconds = rclcpp::Time(header.stamp).seconds();
     ImageFrame imageframe(image, seconds);
@@ -29,6 +32,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     all_image_frame_.insert(make_pair(seconds, imageframe));
 
     if (need_online_calibration_) {
+        Logger::info("calibration");
         // 主要是标定 imu 和相机之间的外参
     }
 
@@ -44,10 +48,9 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
                 solver_flag_ = NON_LINERA;
                 // 非线性优化
                 solveOdometry();
-                slideWindow();
             } else {
-                slideWindow();
             }
+            slideWindow();
         } else {
             frame_count_++;
         }
@@ -117,21 +120,19 @@ bool Estimator::visualInitialAlign() {
         if (estimateRelativePose(ref_frame, i)) {
             pose_success[i] = true;
             Logger::info("Frame {} pose estimated successfully", i);
-        } else {
-            Logger::info("Failed to estimate pose for frame {}", i);
         }
     }
 
     // 步骤四：三角化特征点
     int triangulated_points = triangulateAllPoints(ref_frame);
     if (triangulated_points < 20) {
-        Logger::info("太少的点用于三角化");
+        Logger::info("visual initialization failed: too few feature point os ");
         return false;
     }
 
     // 步骤五：全局BA优化
-    if (!globalBundleAdjunstment()) {
-        Logger::info("");
+    if (!globalBundleAdjustment(ref_frame)) {
+        Logger::info("全局BA优化失败");
         return false;
     }
 
@@ -200,6 +201,70 @@ bool Estimator::estimateRelativePose(int ref_frame, int target_frame) {
     
     Logger::info("位姿估计成功，内点 {} / {}", inliers, pts_ref.size());
     return true;
+}
+
+bool Estimator::estimateCurrentPoseByPnP() {
+    int current_frame = frame_count_;
+    Logger::info("Estimating pose for frame %d using PnP", current_frame);
+
+    // 手机3D - 2D 的对应点
+    std::vector<cv::Point3f> object_points;
+    std::vector<cv::Point2f> image_points;
+
+    int correspondences = 0;
+    for (const auto& feat: f_manager.feature_) {
+        // 如果当前这个特征都没有进行三角化，就先跳过
+        if (feat.point.norm() < 1e-6) continue;
+
+        // bool observed_in_current = false;
+        int max_frame = feat.start_frame + feat.feature_per_frame.size() - 1;
+        // 该特征点是否在当前帧被观测到
+        if (max_frame >= current_frame) {
+            int frame_idx = current_frame - feat.start_frame;
+            object_points.push_back(cv::Point3f(
+                feat.point.x(), feat.point.y(), feat.point.z()
+            ));
+            image_points.push_back(cv::Point2f(feat.feature_per_frame[frame_idx].uv.x(), feat.feature_per_frame[frame_idx].uv.y()));
+            correspondences++;
+        }
+    }
+
+    if (correspondences < 6) {
+        Logger::error("Not enough 3D-2D correspondences for PnP: %d", correspondences);
+        return false;
+    }
+
+    Logger::info("PnP: found %d 3D-2D correspondences", correspondences);
+
+    // 求解 PnP
+    cv::Mat r_vec, t_vec, inliers;
+    cv::Mat camera_matrix = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);
+
+    try {
+        bool success = cv::solvePnPRansac(object_points, image_points, camera_matrix,
+                                          cv::Mat(), r_vec, t_vec, false, 100, 2.0, 0.99, inliers);
+        if (!success) {
+            Logger::error("PnP Ransac failed");
+            return false;
+        }
+
+        // 转换到旋转矩阵
+        cv::Mat R;
+        cv::Rodrigues(r_vec, R);
+
+        // 转换到Eigen格式
+        cv::cv2eigen(R, Rs[current_frame]);
+        cv::cv2eigen(t_vec, Ps[current_frame]);
+
+        int num_inliers = inliers.rows;
+        Logger::info("PnP success: %d inliers / %d points", num_inliers, correspondences);
+
+        return num_inliers >= 6;
+
+    } catch (const cv::Exception& e) {
+        Logger::error("OpenCV exception in PnP: %s", e.what());
+        return false;
+    }
 }
 
 int Estimator::selectReferenceFrame() {
@@ -274,12 +339,18 @@ double Estimator::calculateAverageParallax(int frame_id) {
 }
 
 void Estimator::slideWindow() {
+    if (frame_count_ != window_size_) {
+        return;
+    }
     if (marginalization_flag_ == MARGIN_OLD) {
-
+        // 边缘化R[0] 和 P[0]
+        Ps.pop_front();
+        Rs.pop_front();
     } else {
-        if (frame_count_ == window_size_) {
-            slideWindowNew();
-        }
+        headers_[frame_count_-1] = headers_[frame_count_];
+        Ps[frame_count_-1] = Ps[frame_count_];
+        Rs[frame_count_-1] = Rs[frame_count_];
+        Vs[frame_count_-1] = Vs[frame_count_];
     }
 }
 
@@ -295,8 +366,18 @@ void Estimator::solveOdometry() {
     if (frame_count_ < window_size_)
         return;
     if (solver_flag_ == NON_LINERA) {
-        // f_manager.
+        // 1. 使用 PNP 估计当前帧
+        if (!estimateCurrentPoseByPnP()) {
+            Logger::error("PnP failed, 尝试通过八点法或者三角化求解相对位姿");
+        }
     }
+
+    // 三角化新的特征点
+
+    // 局部优化
+    optimization();
+
+    // 移除外点
 }
 
 void Estimator::optimization() {
@@ -305,18 +386,16 @@ void Estimator::optimization() {
 
 int Estimator::triangulateAllPoints(int ref_frame) {
     Logger::info("尝试使用参考帧位姿三角化特征点");
-
     int success_count = 0;
-
     for (auto& feat : f_manager.feature_) {
         if (feat.start_frame <= ref_frame && feat.endFrame() >= ref_frame) {
             Eigen::Vector3d point_3d;
             if (triangulatePoint(feat, point_3d)) {
                 success_count++;
+                feat.point = point_3d;
             }
         }
     }
-
     Logger::info("成功三角化 {} 个点", success_count);
     return success_count;
 }
@@ -338,9 +417,9 @@ bool Estimator::triangulatePoint(const FeaturePerId& feature, Eigen::Vector3d& p
 
         Eigen::Matrix3d R = Rs[frame_idx];
         Eigen::Vector3d t = Ps[frame_idx];
-        Eigen::Vector2d pt = feature.feature_per_frame[i].point;
+        Eigen::Vector3d pt = feature.feature_per_frame[i].point;
 
-        Eigen::Vector3d u(pt.x(), pt.y(), 1.0);
+        Eigen::Vector3d u(pt.x() / pt.z(), pt.y() / pt.z(), 1.0);
         Eigen::Matrix<double, 3, 4> P;
         P.leftCols<3>() = R.transpose();
         P.rightCols<1>() = -R.transpose() * t;  // P = [R^T | -R^T*t]
@@ -368,6 +447,6 @@ bool Estimator::triangulatePoint(const FeaturePerId& feature, Eigen::Vector3d& p
     return true;
 }
 
-bool globalBundleAdjustment(int ref_frame) {
+bool Estimator::globalBundleAdjustment(int ref_frame) {
     return true;
 }

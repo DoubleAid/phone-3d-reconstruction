@@ -50,16 +50,15 @@ class FeaturePerId {
 public:
     const int feature_id;
     int start_frame;
+    Vector3d point;
     vector<FeaturePerFrame> feature_per_frame;
 
     int used_num;
 
     FeaturePerId(int _feature_id, int _start_frame) : 
         feature_id(_feature_id), start_frame(_start_frame),
-        used_num(0) {
-
+        used_num(0), point(Vector3d::Zero()) {
     }
-
     int endFrame() const;
 };
 

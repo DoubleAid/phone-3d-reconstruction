@@ -85,9 +85,7 @@ void VinsEstimatorManager::initialize() {
 }
 
 void VinsEstimatorManager::featureCallback(const PointCloudPtr msg) {
-    Logger::info("收到 feature 消息：");
-    Logger::info("      帧id : {}", msg->header.frame_id);
-    Logger::info("      点数 : 宽 {} X 高 {}", msg->width, msg->height);
+    Logger::info("收到 feature 消息! 点数 : 宽 {} X 高 {}", msg->width, msg->height);
     if (!feature_init_) {
         // 跳过第一帧，因为第一帧不包含光流点数据
         feature_init_ = true;

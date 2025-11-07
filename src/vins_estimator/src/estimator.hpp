@@ -1,4 +1,5 @@
 #pragma once
+#include <deque>
 #include <rclcpp/rclcpp.hpp>
 #include <unordered_map>
 #include <Eigen/Dense>
@@ -28,6 +29,7 @@ public:
     Estimator(int window_size = 10);
 
     bool estimateRelativePose(int ref_frame, int target_frame);
+    bool estimateCurrentPoseByPnP();
     bool globalBundleAdjustment(int ref_frame);
     bool initialStructure();
     bool isPoseValid(const Eigen::Matrix3d& R, const Eigen::Vector3d& t);
@@ -57,12 +59,12 @@ private:
 
     map<double, ImageFrame> all_image_frame_;   // 时间和帧的映射
 
-    vector<Vector3d> key_poses_;                // 关键帧的位姿
-    vector<Vector3d> Ps;                        // 窗口每个帧的相机位置
-    vector<Vector3d> Vs;                        // 窗口每个帧的旋转速度
-    vector<Matrix3d> Rs;                        // 窗口每个帧的旋转矩阵
+    deque<Vector3d> key_poses_;                // 关键帧的位姿
+    deque<Vector3d> Ps;                        // 窗口每个帧的相机位置
+    deque<Vector3d> Vs;                        // 窗口每个帧的旋转速度
+    deque<Matrix3d> Rs;                        // 窗口每个帧的旋转矩阵
 
-    vector<std_msgs::msg::Header> headers_;
+    deque<std_msgs::msg::Header> headers_;
 
     FeatureManager f_manager;
     MarginalizationFlag marginalization_flag_;

@@ -8,6 +8,11 @@ FeatureManager::FeatureManager() {
 
 }
 
+/**
+ * @brief   
+ * @param
+ * @returns
+*/
 bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7,1>>>> &image) {
     double parallax_sum = 0;        // 视差和
     int parallax_num = 0;           // 视差点数
