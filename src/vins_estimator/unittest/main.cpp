@@ -58,7 +58,7 @@ public:
             // dr/dx = -nR_wc   dr/dy = -nR_wc
         }
     }
-
+//
 private:
     Eigen::Vector2d local_pt_;
     Line line_;
