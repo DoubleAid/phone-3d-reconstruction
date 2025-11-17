@@ -66,7 +66,9 @@ public:
         Eigen::Vector2d p_w;
         p_w(0) = cos_theta * local_pt_(0) - sin_theta * local_pt_(1) + x;
         p_w(1) = sin_theta * local_pt_(0) + cos_theta * local_pt_(1) + y;
-        
+
+        cout << "转换后的世界坐标：[" << p_w(0) << ", " << p_w(1) << "]" << endl;
+
         // 计算残差
         // *residuals = line_.distance(p_w);
         // 这里使用有符号距离计算残差，不然在近零点处导数会不连续
@@ -88,6 +90,7 @@ public:
             Eigen::Vector2d dR_dtheta_p;
             dR_dtheta_p(0) = -sin_theta * local_pt_(0) - cos_theta * local_pt_(1);
             dR_dtheta_p(1) = cos_theta * local_pt_(0) - sin_theta * local_pt_(1);
+            
             jacobians[0][2] = line_.normal_.dot(dR_dtheta_p); // dr/dtheta
         }
 
@@ -118,11 +121,8 @@ vector<Eigen::Vector2d> generateNoisyPoints(const Pose2D& true_pose, const Line&
         // 转换到局部坐标系
         Eigen::Vector2d local_pt;
         // 世界坐标系旋转theta == 局部点逆时针旋转 -theta
-        // local_pt(0) = cos_theta * (world_pt(0) - true_pose.x) + sin_theta * (world_pt(1) - true_pose.y);
-        // local_pt(1) = -sin_theta * (world_pt(0) - true_pose.x) + cos_theta * (world_pt(1) - true_pose.y);
-
-        local_pt(0) = cos_theta * world_pt(0) + sin_theta * world_pt(1) - (cos_theta * true_pose.x + sin_theta * true_pose.y);
-        local_pt(1) = -sin_theta * world_pt(0) + cos_theta * world_pt(1) - (-sin_theta * true_pose.x + cos_theta * true_pose.y);
+        local_pt(0) = cos_theta * (world_pt(0) - true_pose.x) + sin_theta * (world_pt(1) - true_pose.y);
+        local_pt(1) = -sin_theta * (world_pt(0) - true_pose.x) + cos_theta * (world_pt(1) - true_pose.y);
 
         points.push_back(local_pt);
     }
@@ -140,7 +140,36 @@ int main() {
     // 创建优化问题
     ceres::Problem problem;
     // 初始估计值（故意给一个错误的初始值）
-    double pose[3] = {1.0, 1.0, 0.0}; // 与真实值有偏差
+    double pose[3] = {2.5, 1.0, -M_PI / 6}; // 与真实值有偏差
+
+    // 测试
+    {
+        double y = line.yIntercept(0);
+        Eigen::Vector2d world_pt(0, y);
+        Eigen::Vector2d local_pt;
+        double cos_theta = cos(true_pose.theta);
+        double sin_theta = sin(true_pose.theta);
+        local_pt(0) = cos_theta * (world_pt(0) - true_pose.x) + sin_theta * (world_pt(1) - true_pose.y);
+        local_pt(1) = -sin_theta * (world_pt(0) - true_pose.x) + cos_theta * (world_pt(1) - true_pose.y);
+        cout << "世界坐标：[" << world_pt(0) << ", " << world_pt(1) << "], 相机坐标：[" << local_pt(0) << ", " << local_pt(1) << "]" << endl;
+        PointToLineFactor factor(local_pt, line);
+        double a[3] = {3.0, 1.0, -M_PI / 4};
+        const double* para[1] = {a};
+        double res = 0;
+        double* jacobians[1] = {nullptr};
+        double jacobians_value[3] = {0};
+        jacobians[0] = jacobians_value;
+        factor.Evaluate(para, &res, jacobians);
+        cout << "残差值" << res << endl;
+        cout << "参数值:[" << para[0][0] << ", " << para[0][1] << ", " << para[0][2] << "], jacobians : [" << jacobians[0][0] << ", " << jacobians[0][1] << ", " << jacobians[0][2] << "]" << endl;
+
+        // 世界坐标：[0, 5], 相机坐标：[-4.94975, 0.707107]
+        // 转换后的世界坐标：[0, 5]
+        // 残差值0
+        // 参数值:[3, 1, -0.785398], jacobians : [0.5547, 0.83205, -4.71495]
+        // 
+        // 这里可以看到，当角度对的时候，dr/dx 和 dr/dy 永远是大于 0 的，那么x, y 会倾向于向减少的方向移动，这就会导致位置不准
+    }
 
     // 为每个观测点创建残差块
     for (const auto& local_pt : oberved_points) {
@@ -157,9 +186,9 @@ int main() {
 
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_QR;
-    options.minimizer_progress_to_stdout = true;
-    options.max_num_iterations = 1000;           // 最大迭代次数
-    options.function_tolerance = 1e-8;
+    options.minimizer_progress_to_stdout = true;    // 是否在控制台输出优化过程的详细信息
+    options.max_num_iterations = 1000;              // 最大迭代次数，防止无限循环
+    options.function_tolerance = 1e-8;              // 成本函数变化的收敛阈值
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
